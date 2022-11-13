@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
  * @method User|null first(array $conditions = [])
  * @method User|null firstByKey(int|string $key)
  * @method User createWithAttributes(array $attributes = [])
+ * @method User firstOrCreateWithAttributes(array $attributes = [], array $values = [])
  */
 class UserProvider extends ModelProvider implements UserProviderContract
 {
