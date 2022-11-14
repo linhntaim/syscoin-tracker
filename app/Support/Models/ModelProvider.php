@@ -458,16 +458,16 @@ abstract class ModelProvider
         return $this->executeAll($this->queryWhere($conditions));
     }
 
-    public function chunk(Closure $callback, array $conditions = []): void
+    public function chunk(Closure $callback, array $conditions = [], int $count = 1000): void
     {
-        $execute = function (Closure $callback, Builder $query, int $index): bool {
+        $execute = function (Closure $callback, Builder $query, int $index) use ($count): bool {
             $chunk = $this->executeAll(
                 $query
-                    ->skip(($this->read - 1) * $this->perRead)
-                    ->take($this->perRead + 1)
+                    ->skip($index * $count)
+                    ->take($count + 1)
             );
 
-            if ($chunk->count() > $this->perRead) {
+            if ($chunk->count() > $count) {
                 $chunk->pop();
                 $callback($chunk, $index);
                 return true;
