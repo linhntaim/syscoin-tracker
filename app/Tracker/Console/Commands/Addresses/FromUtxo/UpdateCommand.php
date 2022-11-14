@@ -6,11 +6,12 @@ use App\Support\Console\Commands\Command;
 use App\Tracker\Models\Wallet;
 use App\Tracker\Models\WalletProvider;
 use App\Tracker\Services\Utxo;
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 
 class UpdateCommand extends Command
 {
+    use ParseTxTimes;
+
     protected Utxo $utxo;
 
     protected WalletProvider $walletProvider;
@@ -42,16 +43,7 @@ class UpdateCommand extends Command
     {
         $addressPayload = $this->utxo->getAddress($wallet->address);
 
-        $createdAt = $updatedAt = null;
-        if ($addressPayload['txs'] === 1) {
-            $tx = $this->utxo->getTx($addressPayload['txids'][0]);
-            $createdAt = $updatedAt = Carbon::createFromTimestamp($tx['blockTime']);
-        }
-        elseif ($addressPayload['txs'] > 1) {
-            $createdAt = Carbon::createFromTimestamp($this->utxo->getTx($addressPayload['txids'][0])['blockTime']);
-            $updatedAt = Carbon::createFromTimestamp($this->utxo->getTx($addressPayload['txids'][$addressPayload['txs'] - 1])['blockTime']);
-        }
-
+        [$createdAt, $updatedAt] = $this->parseTxTimes($addressPayload);
         return $this->walletProvider
             ->withModel($wallet)
             ->updateWithAttributes([

@@ -6,11 +6,10 @@ use App\Support\Console\Commands\Command;
 use App\Tracker\Models\Wallet;
 use App\Tracker\Models\WalletProvider;
 use App\Tracker\Services\Utxo;
-use Carbon\Carbon;
 
 class CollectCommand extends Command
 {
-    use AccessLastBlock;
+    use AccessLastBlock, ParseTxTimes;
 
     public $signature = '{--fresh}';
 
@@ -82,15 +81,7 @@ class CollectCommand extends Command
 
     protected function createWallet(array $addressPayload, array $status): Wallet
     {
-        $createdAt = $updatedAt = null;
-        if ($addressPayload['txs'] === 1) {
-            $tx = $this->utxo->getTx($addressPayload['txids'][0]);
-            $createdAt = $updatedAt = Carbon::createFromTimestamp($tx['blockTime']);
-        }
-        elseif ($addressPayload['txs'] > 1) {
-            $createdAt = Carbon::createFromTimestamp($this->utxo->getTx($addressPayload['txids'][0])['blockTime']);
-            $updatedAt = Carbon::createFromTimestamp($this->utxo->getTx($addressPayload['txids'][$addressPayload['txs'] - 1])['blockTime']);
-        }
+        [$createdAt, $updatedAt] = $this->parseTxTimes($addressPayload);
         return $this->walletProvider->createWithAttributes([
             'address' => $addressPayload['address'],
             'network' => Wallet::NETWORK_UTXO,
