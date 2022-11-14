@@ -3,6 +3,7 @@
 namespace App\Tracker\Console\Commands\Addresses\FromUtxo;
 
 use App\Support\Console\Commands\Command;
+use App\Support\Models\QueryValues\ComparingValue;
 use App\Tracker\Models\Wallet;
 use App\Tracker\Models\WalletProvider;
 use App\Tracker\Services\Utxo;
@@ -11,6 +12,8 @@ use Illuminate\Database\Eloquent\Collection;
 class UpdateCommand extends Command
 {
     use ParseTxTimes;
+
+    public $signature = '{--start=}';
 
     protected Utxo $utxo;
 
@@ -24,10 +27,15 @@ class UpdateCommand extends Command
         parent::handleBefore();
     }
 
+    protected function start(): int
+    {
+        return is_null($start = $this->option('start')) ? 1 : (int)$start;
+    }
+
     protected function handling(): int
     {
         $status = $this->utxo->getStatus();
-        $this->walletProvider->chunk(function (Collection $wallets, int $index) use ($status) {
+        $this->walletProvider->sort('id')->chunk(function (Collection $wallets, int $index) use ($status) {
             $this->warn(sprintf('Processing chunk %d (%d items) ...', $index, $wallets->count()));
             foreach ($wallets as $wallet) {
                 $this->line(sprintf('<info>Wallet:</info> %s', $wallet->address));
@@ -35,7 +43,10 @@ class UpdateCommand extends Command
                 $this->line(sprintf('<comment> - Balance:</comment> %s', $wallet->balance));
             }
             $this->info('Processed.');
-        }, ['network' => Wallet::NETWORK_UTXO]);
+        }, [
+            'network' => Wallet::NETWORK_UTXO,
+            'id' => new ComparingValue($this->start(), '>='),
+        ]);
         return $this->exitSuccess();
     }
 
