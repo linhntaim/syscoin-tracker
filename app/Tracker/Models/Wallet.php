@@ -20,5 +20,7 @@ class Wallet extends Model
         'address',
         'network',
         'balance',
+        'created_at',
+        'updated_at',
     ];
 }
