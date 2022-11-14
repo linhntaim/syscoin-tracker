@@ -11,8 +11,8 @@ use App\Support\Models\QueryConditions\SelectCondition;
 use App\Support\Models\QueryConditions\SortCondition;
 use App\Support\Models\QueryConditions\WhereCondition;
 use App\Support\Models\QueryConditions\WithCondition;
+use App\Support\Models\QueryValues\ComparingValue;
 use App\Support\Models\QueryValues\HasValue;
-use App\Support\Models\QueryValues\LikeValue;
 use App\Support\Models\QueryValues\NotNullValue;
 use Closure;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -61,12 +61,6 @@ abstract class ModelProvider
      * @var QueryCondition[]
      */
     protected array $wheres = [];
-
-    protected ?int $read = null;
-
-    protected int $perRead = 1000;
-
-    protected ?Builder $queryRead = null;
 
     protected ?int $write = null;
 
@@ -431,11 +425,11 @@ abstract class ModelProvider
                         case $value instanceof NotNullValue:
                             $query->whereNotNull($column);
                             break;
-                        case $value instanceof LikeValue:
-                            $query->where($column, 'like', (string)$value);
-                            break;
                         case $value instanceof HasValue:
                             $query->has($column, $value->getOperator(), $value->getCount(), 'and', $value->getCallback());
+                            break;
+                        case $value instanceof ComparingValue:
+                            $query->where($column, $value->getOperator(), $value->getValue());
                             break;
                         case is_array($value):
                             $query->whereIn($column, $value);
@@ -482,51 +476,6 @@ abstract class ModelProvider
         while ($execute($callback, clone $query, $index)) {
             ++$index;
         }
-    }
-
-    public function readStart(int $perRead = 1000): static
-    {
-        $this->readEnd();
-
-        $this->read = 0;
-        $this->perRead = $perRead;
-        return $this;
-    }
-
-    public function readQueryPrepare(array $conditions = []): static
-    {
-        $this->queryRead = $this->queryWhere($conditions);
-        return $this;
-    }
-
-    public function readQueryClear(): static
-    {
-        $this->queryRead = null;
-        return $this;
-    }
-
-    public function read(bool &$more = true): EloquentCollection
-    {
-        $more = true;
-        ++$this->read;
-        if (($all = $this->executeAll(
-                (clone $this->queryRead)
-                    ->skip(($this->read - 1) * $this->perRead)
-                    ->take($this->perRead + 1)
-            ))->count() > $this->perRead) {
-            $all->pop();
-        }
-        else {
-            $more = false;
-            $this->readEnd();
-        }
-        return $all;
-    }
-
-    public function readEnd(): static
-    {
-        $this->read = null;
-        return $this->readQueryClear();
     }
 
     public function writeStart(int $perWrite = 1000, bool $ignore = false): static
