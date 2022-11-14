@@ -458,6 +458,32 @@ abstract class ModelProvider
         return $this->executeAll($this->queryWhere($conditions));
     }
 
+    public function chunk(Closure $callback, array $conditions = []): void
+    {
+        $execute = function (Closure $callback, Builder $query, int $index): bool {
+            $chunk = $this->executeAll(
+                $query
+                    ->skip(($this->read - 1) * $this->perRead)
+                    ->take($this->perRead + 1)
+            );
+
+            if ($chunk->count() > $this->perRead) {
+                $chunk->pop();
+                $callback($chunk, $index);
+                return true;
+            }
+
+            $callback($chunk, $index);
+            return false;
+        };
+
+        $query = $this->queryWhere($conditions);
+        $index = 0;
+        while ($execute($callback, clone $query, $index)) {
+            ++$index;
+        }
+    }
+
     public function readStart(int $perRead = 1000): static
     {
         $this->readEnd();

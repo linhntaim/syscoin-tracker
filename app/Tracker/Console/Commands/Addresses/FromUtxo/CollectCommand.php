@@ -1,15 +1,16 @@
 <?php
 
-namespace App\Tracker\Console\Commands\Addresses\FromBlock;
+namespace App\Tracker\Console\Commands\Addresses\FromUtxo;
 
 use App\Support\Console\Commands\Command;
 use App\Tracker\Models\Wallet;
 use App\Tracker\Models\WalletProvider;
 use App\Tracker\Services\Utxo;
+use Carbon\Carbon;
 
 class CollectCommand extends Command
 {
-    use AccessLatestTrackedBlock;
+    use AccessLastBlock;
 
     public $signature = '{--fresh}';
 
@@ -28,22 +29,22 @@ class CollectCommand extends Command
     protected function handling(): int
     {
         $status = $this->utxo->getStatus();
-        $block = $this->option('fresh') ? 1 : $this->lastTrackedBlock() + 1;
+        $block = $this->option('fresh') ? 1 : $this->lastBlock() + 1;
         $blocks = $status['backend']['blocks'] ?? -1;
-        $this->warn(sprintf('Tracking from block %d...', $block));
+        $this->warn(sprintf('Collecting from block %d...', $block));
         for (; $block <= $blocks; ++$block) {
-            $this->info(sprintf('Block %d tracking...', $block));
+            $this->info(sprintf('Block %d collecting...', $block));
             $this->handleBlock($block, $status);
-            $this->info(sprintf('Block %d tracked.', $block));
-            $this->rememberLastTrackedBlock($block);
+            $this->info(sprintf('Block %d collected.', $block));
+            $this->rememberLastBlock($block);
         }
-        $this->warn(sprintf('All %d blocks tracked.', $blocks));
+        $this->warn(sprintf('All %d blocks collected.', $blocks));
         return $this->exitSuccess();
     }
 
     protected function handleBlock(int $block, array $status): void
     {
-        foreach ($this->onlyNewAddresses($this->extractAddresses($this->utxo->getBlock($block))) as $address) {
+        foreach (array_unique($this->onlyNewAddresses($this->extractAddresses($this->utxo->getBlock($block)))) as $address) {
             $this->handleAddress($address, $status);
         }
     }
@@ -68,10 +69,10 @@ class CollectCommand extends Command
     protected function onlyNewAddresses(array $addresses): array
     {
         return count($addresses) > 0
-        && ($trackedAddresses = $this->walletProvider->all([
+        && ($collectedAddresses = $this->walletProvider->all([
             'address' => $addresses,
             'network' => Wallet::NETWORK_UTXO,
-        ])->pluck('address'))->count() > 0 ? array_diff($addresses, $trackedAddresses->all()) : $addresses;
+        ])->pluck('address'))->count() > 0 ? array_diff($addresses, $collectedAddresses->all()) : $addresses;
     }
 
     protected function handleAddress(string $address, array $status): void
@@ -81,10 +82,21 @@ class CollectCommand extends Command
 
     protected function createWallet(array $addressPayload, array $status): Wallet
     {
+        $createdAt = $updatedAt = null;
+        if ($addressPayload['txs'] === 1) {
+            $tx = $this->utxo->getTx($addressPayload['txids'][0]);
+            $createdAt = $updatedAt = Carbon::createFromTimestamp($tx['blockTime']);
+        }
+        elseif ($addressPayload['txs'] > 1) {
+            $createdAt = Carbon::createFromTimestamp($this->utxo->getTx($addressPayload['txids'][0])['blockTime']);
+            $updatedAt = Carbon::createFromTimestamp($this->utxo->getTx($addressPayload['txids'][$addressPayload['txs'] - 1])['blockTime']);
+        }
         return $this->walletProvider->createWithAttributes([
             'address' => $addressPayload['address'],
             'network' => Wallet::NETWORK_UTXO,
             'balance' => bcdiv($addressPayload['balance'], bcpow(10, $status['blockbook']['decimals'])),
+            'created_at' => $createdAt,
+            'updated_at' => $updatedAt,
         ]);
     }
 
