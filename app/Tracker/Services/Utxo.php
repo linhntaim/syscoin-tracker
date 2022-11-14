@@ -22,9 +22,12 @@ class Utxo extends Service
         return $this->get("block/$block")->response();
     }
 
-    public function getAddress(string $address): bool|array
+    public function getAddress(string $address, int $page = 1, int $pageSize = 1000): bool|array
     {
-        return $this->get("address/$address")->response();
+        return $this->get("address/$address", [
+            'page' => $page,
+            'pageSize' => $pageSize,
+        ])->response();
     }
 
     public function getTx(string $txId): bool|array

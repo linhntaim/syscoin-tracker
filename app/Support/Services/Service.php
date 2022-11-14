@@ -8,7 +8,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 /**
- * @method $this get(string $url, $query = null)
+ * @method $this get(string $url, array|string|null $query = null)
  *
  * @mixin PendingRequest
  * @mixin Response
