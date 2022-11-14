@@ -2,16 +2,15 @@
 
 namespace App\Support\Models\QueryValues;
 
-use Stringable;
-
-class LikeValue implements Stringable
+class LikeValue extends ComparingValue
 {
-    public function __construct(protected string $string)
+    public function __construct(string $value)
     {
+        parent::__construct($value, 'like');
     }
 
-    public function __toString(): string
+    public function getValue(): string
     {
-        return sprintf('%%%s%%', $this->string);
+        return sprintf('%%%s%%', $this->value);
     }
 }
