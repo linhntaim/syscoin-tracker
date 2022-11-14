@@ -26,4 +26,9 @@ class Utxo extends Service
     {
         return $this->get("address/$address")->response();
     }
+
+    public function getTx(string $txId): bool|array
+    {
+        return $this->get("tx/$txId")->response();
+    }
 }
